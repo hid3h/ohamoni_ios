@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,10 +30,68 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      // home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const WakeUpTimerPage(),
+    );
+  }
+}
+
+class WakeUpTimerPage extends StatefulWidget {
+  const WakeUpTimerPage({super.key});
+
+  @override
+  _WakeUpTimerPageState createState() => _WakeUpTimerPageState();
+}
+
+class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
+  List<String> _wakeUpTimes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWakeUpTimes();
+  }
+
+  void _loadWakeUpTimes() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
+    });
+  }
+
+  void _saveWakeUpTime() async {
+    final now = DateTime.now();
+    final formattedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _wakeUpTimes.insert(0, formattedTime);
+      prefs.setStringList('wakeUpTimes', _wakeUpTimes);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('起床時間記録'),
+      ),
+      body: ListView.builder(
+        itemCount: _wakeUpTimes.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(_wakeUpTimes[index]),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _saveWakeUpTime,
+        tooltip: '起床時間を記録',
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
