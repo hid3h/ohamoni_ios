@@ -42,7 +42,7 @@ class WakeUpTimerPage extends StatefulWidget {
   const WakeUpTimerPage({super.key});
 
   @override
-  _WakeUpTimerPageState createState() => _WakeUpTimerPageState();
+  State<WakeUpTimerPage> createState() => _WakeUpTimerPageState();
 }
 
 class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
@@ -105,10 +105,10 @@ class BlogEntry extends StatelessWidget {
   final String content;
 
   const BlogEntry({
-    Key? key,
+    super.key,
     required this.datetime,
     required this.content,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
