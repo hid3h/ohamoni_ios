@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +16,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      localizationsDelegates: const [
+        GlobalWidgetsLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ja', 'JP'),
+      ],
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -48,9 +56,7 @@ class WakeUpTimerPage extends StatefulWidget {
 }
 
 class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
-  List<String> _wakeUpTimes = [];
-  DateTime _selectedTime = DateTime.now();
-  bool _showTimePicker = false;
+  Map<String, String> _wakeUpTimesByDate = {};
 
   @override
   void initState() {
@@ -59,34 +65,38 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
   }
 
   void _loadWakeUpTimes() async {
+    debugPrint('Loading wake up times from prefs');
     final prefs = await SharedPreferences.getInstance();
+    final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
+    debugPrint('Loaded wake up times: $wakeUpTimes');
     setState(() {
-      _wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
+      _wakeUpTimesByDate = {};
+      for (var time in wakeUpTimes) {
+        final date = time.split(' ')[0];
+        if (!_wakeUpTimesByDate.containsKey(date)) {
+          _wakeUpTimesByDate[date] = time;
+        }
+      }
     });
+    debugPrint('整理された起床時間: $_wakeUpTimesByDate');
   }
 
   void _saveWakeUpTimeToPrefs(String formattedTime) async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _wakeUpTimes.insert(0, formattedTime);
-      prefs.setStringList('wakeUpTimes', _wakeUpTimes);
-    });
+    final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
+    wakeUpTimes.insert(0, formattedTime);
+    await prefs.setStringList('wakeUpTimes', wakeUpTimes);
+    _loadWakeUpTimes();
   }
 
-  void _saveWakeUpTime() {
-    final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(_selectedTime);
+  void _recordWakeUpTime(DateTime wakeupDateTime) {
+    final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(wakeupDateTime);
     _saveWakeUpTimeToPrefs(formattedTime);
-    _toggleTimePicker(); // タイムピッカーを閉じる
-  }
-
-  void _toggleTimePicker() {
-    setState(() {
-      _showTimePicker = !_showTimePicker;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    Intl.defaultLocale = Localizations.localeOf(context).toString();
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -96,10 +106,11 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
         children: [
           Expanded(
             child: ListView.builder(
-              itemCount: _wakeUpTimes.length,
+              itemCount: _wakeUpTimesByDate.length,
               itemBuilder: (context, index) {
+                final entry = _wakeUpTimesByDate.entries.elementAt(index);
                 return BlogEntry(
-                  datetime: _wakeUpTimes[index],
+                  datetime: entry.value,
                   content: '今日は朝から雨が降っていたので、家でゆっくり過ごしました。',
                 );
               },
@@ -117,17 +128,14 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
   void _showDateTimePicker(BuildContext context) async {
     final DateTime? pickedDateTime = await DatePicker.showDateTimePicker(
       context,
-      currentTime: _selectedTime,
+      currentTime: DateTime.now(),
       minTime: DateTime(2000),
       maxTime: DateTime.now(),
       locale: LocaleType.jp,
     );
 
     if (pickedDateTime != null) {
-      setState(() {
-        _selectedTime = pickedDateTime;
-      });
-      _saveWakeUpTime();
+      _recordWakeUpTime(pickedDateTime);
     }
   }
 }
