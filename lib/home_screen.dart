@@ -49,10 +49,6 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     Intl.defaultLocale = Localizations.localeOf(context).toString();
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('起床時間記録'),
-      ),
       body: Column(
         children: [
           Expanded(
