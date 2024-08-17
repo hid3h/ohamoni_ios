@@ -11,7 +11,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _WakeUpTimerPageState extends State<HomeScreen> {
-  List<DateTime> _wakeupDatetimes = [];
+  List<DateTime> _wakeupDateTimes = [];
 
   @override
   void initState() {
@@ -23,7 +23,7 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
     setState(() {
-      _wakeupDatetimes = wakeUpTimes.map((timeString) {
+      _wakeupDateTimes = wakeUpTimes.map((timeString) {
         return DateFormat('yyyy-MM-dd HH:mm').parse(timeString);
       }).toList();
     });
@@ -59,7 +59,7 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   List<DateTime> get _getWakeUpDateTimes {
     final List<String> temp = [];
     final List<DateTime> ret = [];
-    for (final wakeUpDateTime in _wakeupDatetimes) {
+    for (final wakeUpDateTime in _wakeupDateTimes) {
       final date = wakeUpDateTime.toString().split(' ')[0];
       if (!temp.contains(date)) {
         temp.add(date);
