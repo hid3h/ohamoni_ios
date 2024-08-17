@@ -164,7 +164,7 @@ class BlogEntry extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             Text(
-              '記録時間: ${DateFormat('HH:mm').format(DateTime.parse(datetime))}',
+              '起床時間: ${DateFormat('HH:mm').format(DateTime.parse(datetime))}',
             ),
             SizedBox(height: 8),
             Text(content),
