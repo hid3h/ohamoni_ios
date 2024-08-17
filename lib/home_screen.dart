@@ -11,7 +11,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _WakeUpTimerPageState extends State<HomeScreen> {
-  Map<String, String> _wakeUpTimesByDate = {};
+  List<DateTime> _wakeupDatetimes = [];
 
   @override
   void initState() {
@@ -20,20 +20,13 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   }
 
   void _loadWakeUpTimes() async {
-    debugPrint('Loading wake up times from prefs');
     final prefs = await SharedPreferences.getInstance();
     final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
-    debugPrint('Loaded wake up times: $wakeUpTimes');
     setState(() {
-      _wakeUpTimesByDate = {};
-      for (var time in wakeUpTimes) {
-        final date = time.split(' ')[0];
-        if (!_wakeUpTimesByDate.containsKey(date)) {
-          _wakeUpTimesByDate[date] = time;
-        }
-      }
+      _wakeupDatetimes = wakeUpTimes.map((timeString) {
+        return DateFormat('yyyy-MM-dd HH:mm').parse(timeString);
+      }).toList();
     });
-    debugPrint('整理された起床時間: $_wakeUpTimesByDate');
   }
 
   void _saveWakeUpTimeToPrefs(String formattedTime) async {
@@ -41,42 +34,12 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
     final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
     wakeUpTimes.insert(0, formattedTime);
     await prefs.setStringList('wakeUpTimes', wakeUpTimes);
-    _loadWakeUpTimes();
   }
 
   void _recordWakeUpTime(DateTime wakeupDateTime) {
     final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(wakeupDateTime);
     _saveWakeUpTimeToPrefs(formattedTime);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Intl.defaultLocale = Localizations.localeOf(context).toString();
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('起床時間記録'),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: _wakeUpTimesByDate.length,
-              itemBuilder: (context, index) {
-                final entry = _wakeUpTimesByDate.entries.elementAt(index);
-                return BlogEntry(
-                  datetime: entry.value,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showDateTimePicker(context),
-        child: Icon(Icons.add),
-      ),
-    );
+    _loadWakeUpTimes();
   }
 
   void _showDateTimePicker(BuildContext context) async {
@@ -91,6 +54,50 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
     if (pickedDateTime != null) {
       _recordWakeUpTime(pickedDateTime);
     }
+  }
+
+  List<DateTime> get _getWakeUpDateTimes {
+    final List<String> temp = [];
+    final List<DateTime> ret = [];
+    for (final wakeUpDateTime in _wakeupDatetimes) {
+      final date = wakeUpDateTime.toString().split(' ')[0];
+      if (!temp.contains(date)) {
+        temp.add(date);
+        ret.add(wakeUpDateTime);
+      }
+    }
+    debugPrint('ret: $ret');
+    return ret;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Intl.defaultLocale = Localizations.localeOf(context).toString();
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('起床時間記録'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: _getWakeUpDateTimes.length,
+              itemBuilder: (context, index) {
+                final dateTime = _getWakeUpDateTimes[index];
+                return BlogEntry(
+                  datetime: DateFormat('yyyy-MM-dd HH:mm').format(dateTime),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showDateTimePicker(context),
+        child: Icon(Icons.add),
+      ),
+    );
   }
 }
 
