@@ -81,12 +81,17 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              itemCount: _getWakeUpDateTimes.length,
-              itemBuilder: (context, index) {
-                final dateTime = _getWakeUpDateTimes[index];
-                return BlogEntry(
-                  datetime: DateFormat('yyyy-MM-dd HH:mm').format(dateTime),
+            child: Builder(
+              builder: (context) {
+                final wakeUpDateTimes = _getWakeUpDateTimes;
+                return ListView.builder(
+                  itemCount: wakeUpDateTimes.length,
+                  itemBuilder: (context, index) {
+                    final dateTime = wakeUpDateTimes[index];
+                    return BlogEntry(
+                      datetime: DateFormat('yyyy-MM-dd HH:mm').format(dateTime),
+                    );
+                  },
                 );
               },
             ),
