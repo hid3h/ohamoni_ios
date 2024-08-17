@@ -11,7 +11,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _WakeUpTimerPageState extends State<HomeScreen> {
-  List<DateTime> _wakeupDateTimes = [];
+  WakeUpDateTimeList _wakeUpDateTimes = WakeUpDateTimeList([]);
 
   @override
   void initState() {
@@ -20,25 +20,14 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   }
 
   void _loadWakeUpTimes() async {
-    final prefs = await SharedPreferences.getInstance();
-    final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
+    final wakeUpDateTimes = await WakeUpDateTimeList.fetchWakeUpTime();
     setState(() {
-      _wakeupDateTimes = wakeUpTimes.map((timeString) {
-        return DateFormat('yyyy-MM-dd HH:mm').parse(timeString);
-      }).toList();
+      _wakeUpDateTimes = wakeUpDateTimes;
     });
   }
 
-  void _saveWakeUpTimeToPrefs(String formattedTime) async {
-    final prefs = await SharedPreferences.getInstance();
-    final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
-    wakeUpTimes.insert(0, formattedTime);
-    await prefs.setStringList('wakeUpTimes', wakeUpTimes);
-  }
-
   void _recordWakeUpTime(DateTime wakeupDateTime) {
-    final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(wakeupDateTime);
-    _saveWakeUpTimeToPrefs(formattedTime);
+    WakeUpDateTimeList.recordWakeUpTime(wakeupDateTime);
     _loadWakeUpTimes();
   }
 
@@ -56,21 +45,6 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
     }
   }
 
-  List<DateTime> get _getWakeUpDateTimes {
-    final List<String> temp = [];
-    final List<DateTime> ret = [];
-    for (final wakeUpDateTime in _wakeupDateTimes) {
-      final date = wakeUpDateTime.toString().split(' ')[0];
-      if (!temp.contains(date)) {
-        temp.add(date);
-        ret.add(wakeUpDateTime);
-      }
-    }
-    ret.sort((a, b) => b.compareTo(a));
-
-    return ret;
-  }
-
   @override
   Widget build(BuildContext context) {
     Intl.defaultLocale = Localizations.localeOf(context).toString();
@@ -84,13 +58,37 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
           Expanded(
             child: Builder(
               builder: (context) {
-                final wakeUpDateTimes = _getWakeUpDateTimes;
+                final wakeUpDateTimeValues = _wakeUpDateTimes.values;
                 return ListView.builder(
-                  itemCount: wakeUpDateTimes.length,
+                  itemCount: wakeUpDateTimeValues.length,
                   itemBuilder: (context, index) {
-                    final dateTime = wakeUpDateTimes[index];
-                    return BlogEntry(
-                      datetime: DateFormat('yyyy-MM-dd HH:mm').format(dateTime),
+                    final wakeUpDateTime = wakeUpDateTimeValues[index];
+                    return Container(
+                      margin: const EdgeInsets.all(8.0),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          left: BorderSide(
+                            color: Colors.blue,
+                            width: 3.0,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8.0, 1.0, 1.0, 1.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              wakeUpDateTime.formattedDate(),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              '起床時間: ${wakeUpDateTime.formattedTime()}',
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 );
@@ -107,33 +105,62 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   }
 }
 
-class BlogEntry extends StatelessWidget {
-  final String datetime;
+class WakeUpDateTime {
+  final DateTime _value;
 
-  const BlogEntry({
-    super.key,
-    required this.datetime,
-  });
+  factory WakeUpDateTime.fromString(String wakeUpDateTimeString) {
+    return WakeUpDateTime(
+        DateFormat('yyyy-MM-dd HH:mm').parse(wakeUpDateTimeString));
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.all(8.0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              DateFormat('MM月dd日 (E)').format(DateTime.parse(datetime)),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '起床時間: ${DateFormat('HH:mm').format(DateTime.parse(datetime))}',
-            ),
-          ],
-        ),
-      ),
-    );
+  WakeUpDateTime(this._value);
+
+  formattedDate() {
+    return DateFormat('yyyy年MM月dd日 (E)').format(_value);
+  }
+
+  formattedTime() {
+    return DateFormat('HH:mm').format(_value);
+  }
+
+  compareTo(WakeUpDateTime other) {
+    return _value.compareTo(other._value);
+  }
+}
+
+class WakeUpDateTimeList {
+  final List<WakeUpDateTime> values;
+
+  WakeUpDateTimeList(this.values);
+
+  static recordWakeUpTime(DateTime wakeupDateTime) {
+    final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(wakeupDateTime);
+    _saveWakeUpTimeToPrefs(formattedTime);
+  }
+
+  static Future<WakeUpDateTimeList> fetchWakeUpTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final wakeUpDateTimeStrings = prefs.getStringList('wakeUpTimes') ?? [];
+
+    final List<String> temp = [];
+    final List<WakeUpDateTime> ret = [];
+
+    for (final wakeUpDateTimeString in wakeUpDateTimeStrings) {
+      final date = wakeUpDateTimeString.split(' ')[0];
+      if (!temp.contains(date)) {
+        temp.add(date);
+        ret.add(WakeUpDateTime.fromString(wakeUpDateTimeString));
+      }
+    }
+    ret.sort((a, b) => b.compareTo(a));
+
+    return WakeUpDateTimeList(ret);
+  }
+
+  static _saveWakeUpTimeToPrefs(String formattedTime) async {
+    final prefs = await SharedPreferences.getInstance();
+    final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
+    wakeUpTimes.insert(0, formattedTime);
+    await prefs.setStringList('wakeUpTimes', wakeUpTimes);
   }
 }
