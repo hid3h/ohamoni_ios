@@ -66,7 +66,8 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
         ret.add(wakeUpDateTime);
       }
     }
-    debugPrint('ret: $ret');
+    ret.sort((a, b) => b.compareTo(a));
+
     return ret;
   }
 
