@@ -79,12 +79,6 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
     _toggleTimePicker(); // タイムピッカーを閉じる
   }
 
-  void _updateSelectedTime(DateTime time) {
-    setState(() {
-      _selectedTime = time;
-    });
-  }
-
   void _toggleTimePicker() {
     setState(() {
       _showTimePicker = !_showTimePicker;
@@ -100,44 +94,6 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
       ),
       body: Column(
         children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            child: GestureDetector(
-              onTap: _toggleTimePicker,
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '起床時間: ${DateFormat('HH:mm').format(_selectedTime)}',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                    Icon(Icons.arrow_drop_down),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_showTimePicker)
-            Container(
-              height: 150,
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.time,
-                initialDateTime: _selectedTime,
-                onDateTimeChanged: _updateSelectedTime,
-                minuteInterval: 1,
-                use24hFormat: true,
-              ),
-            ),
-          ElevatedButton(
-            onPressed: _saveWakeUpTime,
-            child: Text('記録'),
-          ),
           Expanded(
             child: ListView.builder(
               itemCount: _wakeUpTimes.length,
@@ -151,7 +107,28 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showDateTimePicker(context),
+        child: Icon(Icons.add),
+      ),
     );
+  }
+
+  void _showDateTimePicker(BuildContext context) async {
+    final DateTime? pickedDateTime = await DatePicker.showDateTimePicker(
+      context,
+      currentTime: _selectedTime,
+      minTime: DateTime(2000),
+      maxTime: DateTime.now(),
+      locale: LocaleType.jp,
+    );
+
+    if (pickedDateTime != null) {
+      setState(() {
+        _selectedTime = pickedDateTime;
+      });
+      _saveWakeUpTime();
+    }
   }
 }
 
