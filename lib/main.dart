@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
@@ -47,6 +49,8 @@ class WakeUpTimerPage extends StatefulWidget {
 
 class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
   List<String> _wakeUpTimes = [];
+  DateTime _selectedTime = DateTime.now();
+  bool _showTimePicker = false;
 
   @override
   void initState() {
@@ -61,14 +65,29 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
     });
   }
 
-  void _saveWakeUpTime() async {
-    final now = DateTime.now();
-    final formattedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
-
+  void _saveWakeUpTimeToPrefs(String formattedTime) async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _wakeUpTimes.insert(0, formattedTime);
       prefs.setStringList('wakeUpTimes', _wakeUpTimes);
+    });
+  }
+
+  void _saveWakeUpTime() {
+    final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(_selectedTime);
+    _saveWakeUpTimeToPrefs(formattedTime);
+    _toggleTimePicker(); // タイムピッカーを閉じる
+  }
+
+  void _updateSelectedTime(DateTime time) {
+    setState(() {
+      _selectedTime = time;
+    });
+  }
+
+  void _toggleTimePicker() {
+    setState(() {
+      _showTimePicker = !_showTimePicker;
     });
   }
 
@@ -79,22 +98,58 @@ class _WakeUpTimerPageState extends State<WakeUpTimerPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('起床時間記録'),
       ),
-      body: ListView.builder(
-        itemCount: _wakeUpTimes.length,
-        itemBuilder: (context, index) {
-          return BlogEntry(
-            datetime: _wakeUpTimes[index],
-            content: '今日は朝から雨が降っていたので、家でゆっくり過ごしました。',
-          );
-          // return ListTile(
-          //   title: Text(_wakeUpTimes[index]),
-          // );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _saveWakeUpTime,
-        tooltip: '起床時間を記録',
-        child: const Icon(Icons.add),
+      body: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(16),
+            child: GestureDetector(
+              onTap: _toggleTimePicker,
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '起床時間: ${DateFormat('HH:mm').format(_selectedTime)}',
+                      style: TextStyle(fontSize: 18),
+                    ),
+                    Icon(Icons.arrow_drop_down),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_showTimePicker)
+            Container(
+              height: 150,
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.time,
+                initialDateTime: _selectedTime,
+                onDateTimeChanged: _updateSelectedTime,
+                minuteInterval: 1,
+                use24hFormat: true,
+              ),
+            ),
+          ElevatedButton(
+            onPressed: _saveWakeUpTime,
+            child: Text('記録'),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _wakeUpTimes.length,
+              itemBuilder: (context, index) {
+                return BlogEntry(
+                  datetime: _wakeUpTimes[index],
+                  content: '今日は朝から雨が降っていたので、家でゆっくり過ごしました。',
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
