@@ -109,17 +109,19 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
     Intl.defaultLocale = Localizations.localeOf(context).toString();
     final (minY, maxY) = _getYAxisRange();
     debugPrint('Y軸の範囲: ($minY, $maxY)');
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('起床時間記録'),
         backgroundColor: Colors.blue,
       ),
       body: Column(
         children: [
           SizedBox(
-            height: 300,
+            width: screenWidth * 0.95,
+            height: screenWidth * 0.95 * 0.65,
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(8.0),
               child: LineChart(
                 LineChartData(
                   gridData: const FlGridData(
@@ -149,7 +151,7 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                         interval: 60, // 1時間ごとにタイトルを表示,
                         getTitlesWidget: (value, meta) {
                           int hours = (value ~/ 60).toInt();
-                          return Text('$hours:00');
+                          return Text('$hours');
                         },
                         reservedSize: 30,
                       ),
@@ -182,13 +184,15 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                         // reservedSize: 30,
                       ),
                     ),
-                    topTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
-                  minX: 0,
+                  // タッチ操作時の設定
+                  lineTouchData:
+                      const LineTouchData(handleBuiltInTouches: false),
                   maxX: 6,
                   minY: minY,
                   maxY: maxY,
@@ -197,17 +201,17 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                       spots: _getChartData(),
                       isCurved: false,
                       color: Colors.orange,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 6,
-                            color: Colors.orange,
-                            strokeWidth: 2,
-                            strokeColor: Colors.white,
-                          );
-                        },
-                      ),
+                      // dotData: FlDotData(
+                      //   show: true,
+                      //   getDotPainter: (spot, percent, barData, index) {
+                      //     return FlDotCirclePainter(
+                      //       radius: 6,
+                      //       color: Colors.orange,
+                      //       strokeWidth: 2,
+                      //       strokeColor: Colors.white,
+                      //     );
+                      //   },
+                      // ),
                       belowBarData: BarAreaData(show: false),
                     ),
                   ],
