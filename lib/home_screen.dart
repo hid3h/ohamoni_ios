@@ -1,7 +1,11 @@
+import 'dart:math';
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:collection/collection.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +24,7 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   }
 
   void _loadWakeUpTimes() async {
-    final wakeUpDateTimes = await WakeUpDateTimeList.fetchWakeUpTime();
+    final wakeUpDateTimes = await WakeUpDateTimeList.fetchWakeUpDateTime();
     setState(() {
       _wakeUpDateTimes = wakeUpDateTimes;
     });
@@ -45,12 +49,172 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
     }
   }
 
+  List<FlSpot> _getChartData() {
+    final List<FlSpot> spots = [];
+    final weekDates = _getWeekDates();
+    debugPrint('週の日付: $weekDates');
+
+    for (int i = 0; i < weekDates.length; i++) {
+      final date = weekDates[i];
+      final wakeUpDateTime = _wakeUpDateTimes.findSameDate(date);
+      debugPrint('日付: $date, 起床時間: $wakeUpDateTime');
+      if (wakeUpDateTime != null) {
+        final spot = FlSpot(
+            i.toDouble(), wakeUpDateTime.minutesSinceMidnight().toDouble());
+        spots.add(spot);
+      }
+    }
+    debugPrint('チャートデータ: $spots');
+    return spots;
+  }
+
+  List<DateTime> _getWeekDates() {
+    final now = DateTime.now();
+    final lastSunday = now.weekday == DateTime.sunday
+        ? now
+        : now.subtract(Duration(days: now.weekday));
+
+    return List.generate(7, (index) => lastSunday.add(Duration(days: index)));
+  }
+
+  (double, double) _getYAxisRange() {
+    final spots = _getChartData();
+    if (spots.isEmpty) {
+      return (0, 1440); // 0:00から24:00までの範囲（分単位）
+    }
+
+    final minY = spots.map((spot) => spot.y).reduce((a, b) => min(a, b));
+    final maxY = spots.map((spot) => spot.y).reduce((a, b) => max(a, b));
+
+    double lowerBound;
+    if (minY <= 60) {
+      lowerBound = 0; // 0:00 ~ 1:00 は0時に
+    } else {
+      lowerBound = (minY ~/ 60) * 60.0; // 1:01~24:00は60で割って切り捨ての時間に
+    }
+
+    double upperBound;
+    if (maxY >= 1380) {
+      // 23:00 以降
+      upperBound = 1440; // 23:00~24:00は24時に
+    } else {
+      upperBound = ((maxY ~/ 60) + 1) * 60.0; // 0:00~22:59は60で割って切り上げの時間に
+    }
+
+    return (lowerBound, upperBound);
+  }
+
   @override
   Widget build(BuildContext context) {
     Intl.defaultLocale = Localizations.localeOf(context).toString();
+    final (minY, maxY) = _getYAxisRange();
+    debugPrint('Y軸の範囲: ($minY, $maxY)');
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('起床時間記録'),
+        backgroundColor: Colors.blue,
+      ),
       body: Column(
         children: [
+          SizedBox(
+            height: 300,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: LineChart(
+                LineChartData(
+                  gridData: const FlGridData(
+                    show: true,
+                    horizontalInterval: 30, // 30分ごとにグリッド線を表示,
+                    verticalInterval: 1,
+                    // これがあるとgridの線をデザインできて点線じゃなくなるみたい
+                    // getDrawingHorizontalLine: (value) {
+                    //   return FlLine(
+                    //     color: Colors.grey[300],
+                    //     strokeWidth: 1,
+                    //   );
+                    // },
+                    // getDrawingVerticalLine: (value) {
+                    //   return FlLine(
+                    //     color: Colors.grey[300],
+                    //     strokeWidth: 1,
+                    //   );
+                    // },
+                  ),
+                  titlesData: FlTitlesData(
+                    // x軸とy軸のタイトルを表示するのに必要
+                    show: true,
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 60, // 1時間ごとにタイトルを表示,
+                        getTitlesWidget: (value, meta) {
+                          int hours = (value ~/ 60).toInt();
+                          return Text('$hours:00');
+                        },
+                        reservedSize: 30,
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value % 1 != 0) {
+                            return const SizedBox.shrink();
+                          }
+                          final weekDates = _getWeekDates();
+                          final date = weekDates[value.toInt()];
+                          Color textColor;
+                          if (date.weekday == DateTime.sunday) {
+                            textColor = Colors.red;
+                          } else if (date.weekday == DateTime.saturday) {
+                            textColor = Colors.blue;
+                          } else {
+                            textColor = Colors.black;
+                          }
+                          return Text(
+                            '${date.day}',
+                            style: TextStyle(
+                              color: textColor,
+                            ),
+                            textAlign: TextAlign.center,
+                          );
+                        },
+                        // reservedSize: 30,
+                      ),
+                    ),
+                    topTitles:
+                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles:
+                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: true),
+                  minX: 0,
+                  maxX: 6,
+                  minY: minY,
+                  maxY: maxY,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: _getChartData(),
+                      isCurved: false,
+                      color: Colors.orange,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 6,
+                            color: Colors.orange,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(show: false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: Builder(
               builder: (context) {
@@ -122,6 +286,16 @@ class WakeUpDateTime {
   compareTo(WakeUpDateTime other) {
     return _value.compareTo(other._value);
   }
+
+  bool isSameDate(DateTime other) {
+    return _value.year == other.year &&
+        _value.month == other.month &&
+        _value.day == other.day;
+  }
+
+  int minutesSinceMidnight() {
+    return _value.hour * 60 + _value.minute;
+  }
 }
 
 class WakeUpDateTimeList {
@@ -134,7 +308,7 @@ class WakeUpDateTimeList {
     _saveWakeUpTimeToPrefs(formattedTime);
   }
 
-  static Future<WakeUpDateTimeList> fetchWakeUpTime() async {
+  static Future<WakeUpDateTimeList> fetchWakeUpDateTime() async {
     final prefs = await SharedPreferences.getInstance();
     final wakeUpDateTimeStrings = prefs.getStringList('wakeUpTimes') ?? [];
 
@@ -158,5 +332,9 @@ class WakeUpDateTimeList {
     final wakeUpTimes = prefs.getStringList('wakeUpTimes') ?? [];
     wakeUpTimes.insert(0, formattedTime);
     await prefs.setStringList('wakeUpTimes', wakeUpTimes);
+  }
+
+  WakeUpDateTime? findSameDate(DateTime date) {
+    return values.firstWhereOrNull((wt) => wt.isSameDate(date));
   }
 }
