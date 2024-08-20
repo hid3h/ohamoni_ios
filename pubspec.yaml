@@ -40,7 +40,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   fl_chart: ^0.68.0
-  collection: ^1.19.0
+  collection: ^1.18.0
 
 dev_dependencies:
   flutter_test:

@@ -16,15 +16,26 @@ class HomeScreen extends StatefulWidget {
 
 class _WakeUpTimerPageState extends State<HomeScreen> {
   WakeUpDateTimeList _wakeUpDateTimes = WakeUpDateTimeList([]);
+  late DateTime _weekStartDateTime;
 
   @override
   void initState() {
     super.initState();
+    _weekStartDateTime =
+        DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
     _loadWakeUpTimes();
   }
 
+  void _moveWeek(int weeks) {
+    setState(() {
+      _weekStartDateTime = _weekStartDateTime.add(Duration(days: 7 * weeks));
+      _loadWakeUpTimes();
+    });
+  }
+
   void _loadWakeUpTimes() async {
-    final wakeUpDateTimes = await WakeUpDateTimeList.fetchWakeUpDateTime();
+    final wakeUpDateTimes =
+        await WakeUpDateTimeList.fetch(startDate: _weekStartDateTime, days: 7);
     setState(() {
       _wakeUpDateTimes = wakeUpDateTimes;
     });
@@ -52,35 +63,29 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   List<FlSpot> _getChartData() {
     final List<FlSpot> spots = [];
     final weekDates = _getWeekDates();
-    debugPrint('週の日付: $weekDates');
 
     for (int i = 0; i < weekDates.length; i++) {
       final date = weekDates[i];
       final wakeUpDateTime = _wakeUpDateTimes.findSameDate(date);
-      debugPrint('日付: $date, 起床時間: $wakeUpDateTime');
       if (wakeUpDateTime != null) {
         final spot = FlSpot(
             i.toDouble(), wakeUpDateTime.minutesSinceMidnight().toDouble());
         spots.add(spot);
       }
     }
-    debugPrint('チャートデータ: $spots');
+
     return spots;
   }
 
   List<DateTime> _getWeekDates() {
-    final now = DateTime.now();
-    final lastSunday = now.weekday == DateTime.sunday
-        ? now
-        : now.subtract(Duration(days: now.weekday));
-
-    return List.generate(7, (index) => lastSunday.add(Duration(days: index)));
+    return List.generate(
+        7, (index) => _weekStartDateTime.add(Duration(days: index)));
   }
 
   (double, double) _getYAxisRange() {
     final spots = _getChartData();
     if (spots.isEmpty) {
-      return (0, 1440); // 0:00から24:00までの範囲（分単位）
+      return (360, 540);
     }
 
     final minY = spots.map((spot) => spot.y).reduce((a, b) => min(a, b));
@@ -108,12 +113,30 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     Intl.defaultLocale = Localizations.localeOf(context).toString();
     final (minY, maxY) = _getYAxisRange();
-    debugPrint('Y軸の範囲: ($minY, $maxY)');
+
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
       appBar: AppBar(
+        title: Text(
+          '${DateFormat('MM月dd日', 'ja_JP').format(_weekStartDateTime)}〜${DateFormat('MM月dd日', 'ja_JP').format(_weekStartDateTime.add(const Duration(days: 6)))}',
+          style: const TextStyle(
+            fontSize: 18,
+            color: Colors.white, // タイトルを白色に
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => _moveWeek(-1),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_ios),
+            onPressed: () => _moveWeek(1),
+          ),
+        ],
         backgroundColor: Colors.blue,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
@@ -128,19 +151,6 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                     show: true,
                     horizontalInterval: 30, // 30分ごとにグリッド線を表示,
                     verticalInterval: 1,
-                    // これがあるとgridの線をデザインできて点線じゃなくなるみたい
-                    // getDrawingHorizontalLine: (value) {
-                    //   return FlLine(
-                    //     color: Colors.grey[300],
-                    //     strokeWidth: 1,
-                    //   );
-                    // },
-                    // getDrawingVerticalLine: (value) {
-                    //   return FlLine(
-                    //     color: Colors.grey[300],
-                    //     strokeWidth: 1,
-                    //   );
-                    // },
                   ),
                   titlesData: FlTitlesData(
                     // x軸とy軸のタイトルを表示するのに必要
@@ -181,7 +191,6 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                             textAlign: TextAlign.center,
                           );
                         },
-                        // reservedSize: 30,
                       ),
                     ),
                     topTitles: const AxisTitles(
@@ -194,6 +203,7 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                   lineTouchData:
                       const LineTouchData(handleBuiltInTouches: false),
                   maxX: 6,
+                  minX: 0,
                   minY: minY,
                   maxY: maxY,
                   lineBarsData: [
@@ -201,17 +211,6 @@ class _WakeUpTimerPageState extends State<HomeScreen> {
                       spots: _getChartData(),
                       isCurved: false,
                       color: Colors.orange,
-                      // dotData: FlDotData(
-                      //   show: true,
-                      //   getDotPainter: (spot, percent, barData, index) {
-                      //     return FlDotCirclePainter(
-                      //       radius: 6,
-                      //       color: Colors.orange,
-                      //       strokeWidth: 2,
-                      //       strokeColor: Colors.white,
-                      //     );
-                      //   },
-                      // ),
                       belowBarData: BarAreaData(show: false),
                     ),
                   ],
@@ -307,12 +306,25 @@ class WakeUpDateTimeList {
 
   WakeUpDateTimeList(this.values);
 
+  static Future<WakeUpDateTimeList> fetch(
+      {required DateTime startDate, required int days}) async {
+    final wakeUpDateTimes = await _fetchWakeUpDateTime();
+    final endDate = startDate.add(Duration(days: days));
+    final filteredWakeUpTimes = wakeUpDateTimes.values
+        .where((wt) =>
+            wt._value.isAfter(startDate.subtract(const Duration(days: 1))) &&
+            wt._value.isBefore(endDate))
+        .toList();
+
+    return WakeUpDateTimeList(filteredWakeUpTimes);
+  }
+
   static recordWakeUpTime(DateTime wakeupDateTime) {
     final formattedTime = DateFormat('yyyy-MM-dd HH:mm').format(wakeupDateTime);
     _saveWakeUpTimeToPrefs(formattedTime);
   }
 
-  static Future<WakeUpDateTimeList> fetchWakeUpDateTime() async {
+  static Future<WakeUpDateTimeList> _fetchWakeUpDateTime() async {
     final prefs = await SharedPreferences.getInstance();
     final wakeUpDateTimeStrings = prefs.getStringList('wakeUpTimes') ?? [];
 
